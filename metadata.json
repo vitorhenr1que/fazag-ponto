@@ -1,0 +1,8 @@
+
+{
+  "name": "Ponto FAZAG",
+  "description": "Aplicativo oficial de registro de ponto para colaboradores da Faculdade Zacarias de Góes, operando em rede local.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
