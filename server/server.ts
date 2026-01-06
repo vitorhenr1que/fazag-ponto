@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
-import { prisma } from './prisma';
+import { prisma } from '../services/prisma';
 
 const app = express();
 
@@ -41,7 +41,7 @@ function sha256Hex(input: string) {
  * - se usuário existir: valida deviceId
  * - se não existir: cria (pra facilitar testes)
  */
-app.post('/auth', async (req, res) => {
+app.post('/auth', async (req: any, res: any) => {
   try {
     const { cpf, nome, deviceId } = req.body as { cpf?: string; nome?: string; deviceId?: string };
 
@@ -77,7 +77,7 @@ app.post('/auth', async (req, res) => {
  * Criar batida
  * Body: { userId, deviceId, type }
  */
-app.post('/punch', async (req, res) => {
+app.post('/punch', async (req: any, res: any) => {
   try {
     const { userId, deviceId, type } = req.body as {
       userId?: string;
@@ -133,7 +133,7 @@ app.post('/punch', async (req, res) => {
  * Listar histórico do usuário
  * GET /history/:userId
  */
-app.get('/history/:userId', async (req, res) => {
+app.get('/history/:userId', async (req: any, res: any) => {
   try {
     const { userId } = req.params;
 
