@@ -45,15 +45,15 @@ app.post('/signin', async (req: any, res: any) => {
   try {
     const { deviceId } = req.body as { deviceId?: string };
     if(!deviceId){
-      return res.status(400).json({error: 'O ID do dispositivo não foi passado corretamente.'})
+      return res.status(401).json({error: 'O ID do dispositivo não foi passado corretamente.'})
     }
     const user = await prisma.user.findUnique({where: {deviceId}})
 
     if(user?.deviceId !== deviceId){
       return res.status(403).json({error: 'Dispositivo não encontrado.'})
     }
-    if(user.deviceId === deviceId){
-      return res.status(200).json({user: user})
+    if(user.deviceId.toLocaleUpperCase() === deviceId.toLocaleUpperCase()){
+      return res.status(200).json({user})
     }
   } catch(e){
     res.status(405).json({error: e})

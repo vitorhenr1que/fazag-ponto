@@ -39,7 +39,7 @@ const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ record, user, onBack }) =
           {/* Details */}
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-5">
-              <DetailBox label="Colaborador" value={user?.name || "N/A"} />
+              <DetailBox label="Colaborador" value={user?.nome || "N/A"} />
               <DetailBox label="CPF" value={user?.cpf || "N/A"} />
             </div>
             

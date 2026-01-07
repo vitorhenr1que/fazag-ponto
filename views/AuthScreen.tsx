@@ -7,12 +7,15 @@ import logo from '../assets/logo.png'
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
+  user: User | null
+  errorMessage: undefined | string;
+  
 }
 
 const DEVICE_ID_KEY = 'fazag_device_id';
 
 
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
+const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, errorMessage, user }) => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authMode, setAuthMode] = useState<'INITIAL' | 'PASSWORD'>('INITIAL');
   const [deviceId, setDeviceId] = useState<string>('');
@@ -29,13 +32,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   useEffect(() => {
     let storedDeviceId = localStorage.getItem(DEVICE_ID_KEY);
 
-    if (!storedDeviceId) {
-      storedDeviceId = uuidv4().split('-')[0].toLocaleUpperCase(); // gera o uuid do usuário e pega somente até o primeiro hífen | Se bugar css no iOs remove isso e tenta outra solução
-      localStorage.setItem(DEVICE_ID_KEY, storedDeviceId);
+     if (!storedDeviceId) {
+       storedDeviceId = uuidv4().split('-')[0].toLocaleUpperCase(); // gera o uuid do usuário e pega somente até o primeiro hífen | Se bugar css no iOs remove isso e tenta outra solução
+       localStorage.setItem(DEVICE_ID_KEY, storedDeviceId);
       
-    }
+     }
 
-    setDeviceId(storedDeviceId);
+     setDeviceId(storedDeviceId);
     
   }, []);
 
@@ -49,8 +52,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       setIsAuthenticating(false);
 
       onLogin({
-        name: 'João Silva',
-        cpf: '123.456.789-00',
+        nome: `${user?.nome}`,
+        cpf: `${user?.cpf}`,
         deviceId
       });
     }, 2500);
@@ -110,9 +113,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             {deviceId || 'Gerando identificação...'}
           </p>
         </div>
-
+        
         {authMode === 'INITIAL' ? (
           <div className="space-y-4">
+            <span className='text-center text-[14px] flex justify-center align-center text-red-500'>{errorMessage}</span>
             <button
               onClick={handleDeviceAuth}
               disabled={isAuthenticating || !deviceId}

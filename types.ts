@@ -7,7 +7,7 @@ export enum PunchType {
 }
 
 export interface User {
-  name: string;
+  nome: string;
   cpf: string;
   deviceId: string;
 }

@@ -38,7 +38,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, 
     <div className="p-6 space-y-6 flex flex-col min-h-full">
       <header className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-black text-slate-800">{getGreeting()}, {user?.name.split(' ')[0]}</h2>
+          <h2 className="text-xl font-black text-slate-800">{getGreeting()}, {user?.nome.split(' ')[0]}</h2>
           <p className="text-slate-400 text-xs font-bold uppercase tracking-tighter">{formatDate(time)}</p>
         </div>
         <div className="w-[130px] flex-row align-center justify-center">

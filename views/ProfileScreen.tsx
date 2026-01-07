@@ -40,7 +40,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, recordsCount, isLan
              </svg>
           </div>
           
-          <h3 className="text-xl font-black text-slate-800">{user?.name}</h3>
+          <h3 className="text-xl font-black text-slate-800">{user?.nome}</h3>
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">Colaborador Institucional</p>
           
           {/* Status and Info Grid - Centered items */}
@@ -69,7 +69,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, recordsCount, isLan
           </div>
           
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 divide-y divide-slate-50">
-            <InfoRow label="Nome Completo" value={user?.name || "N/A"} first />
+            <InfoRow label="Nome Completo" value={user?.nome.toLocaleUpperCase() || "N/A"} first />
             <InfoRow label="CPF" value={user?.cpf || "N/A"} />
             <InfoRow label="Modelo Identificado" value={user?.deviceId.split('-')[1] ? `Smartphone ${user.deviceId.split('-')[1]}` : "Dispositivo Mobile"} />
             <InfoRow label="Registro Único (ID)" value={user?.deviceId || "N/A"} isMono last />
