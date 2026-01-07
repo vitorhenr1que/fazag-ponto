@@ -9,6 +9,7 @@ import ProfileScreen from './views/ProfileScreen';
 import BottomNav from './components/BottomNav';
 import { useLanConnection } from './utils/useLanConnection';
 import axios from 'axios';
+import api from './services/api';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('AUTH');
@@ -49,8 +50,8 @@ const App: React.FC = () => {
 
   const handleLogin = async ( newUser: User ) => { // Função de Login
     try {
-
-     const response = await axios.post('http://192.168.0.3:3333/signin', { deviceId: newUser.deviceId })
+      console.log(process.env.API_URL)
+     const response = await api.post('/signin', { deviceId: newUser.deviceId })
      console.log(response.data)
     setUser(response.data.user);
     localStorage.setItem('fazag_user', JSON.stringify(response.data.user));
