@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<PunchRecord[]>([]);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+  const [lastRecord, setLastRecord] = useState("");
 
   // Initialize data from localStorage
   useEffect(() => {
@@ -43,13 +44,13 @@ const App: React.FC = () => {
 
 
 
-  const handleLogin = (newUser: User) => {
+  const handleLogin = (newUser: User) => { // Função de Login
     setUser(newUser);
     localStorage.setItem('fazag_user', JSON.stringify(newUser));
     setView('HOME');
   };
 
-  const handleLogout = () => {
+  const handleLogout = () => { // Função de Logout
     localStorage.removeItem('fazag_user');
     setUser(null);
     setView('AUTH');
@@ -58,7 +59,7 @@ const App: React.FC = () => {
   const handlePunch = (type: PunchType) => {
     if (!isLanConnected) return;
 
-    const newRecord: PunchRecord = {
+    const newRecord: PunchRecord = { // Novo Registro de Batida de Ponto
       id: Math.random().toString(36).substr(2, 9),
       userId: user?.cpf || 'guest',
       timestamp: new Date().toISOString(),
@@ -76,6 +77,9 @@ const App: React.FC = () => {
     // Auto show receipt after punch
     setSelectedReceiptId(newRecord.id);
     setView('RECEIPT');
+   
+    setLastRecord(newRecord.timestamp)
+    localStorage.setItem('lastRecord', newRecord.timestamp)
   };
 
   const viewReceipt = (id: string) => {
@@ -94,6 +98,7 @@ const App: React.FC = () => {
             user={user} 
             isLanConnected={isLanConnected} 
             onPunch={handlePunch} 
+            lastRecord={localStorage.getItem('lastRecord')}
           />
         )}
         {view === 'HISTORY' && (

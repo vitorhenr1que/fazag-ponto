@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { User } from '../types';
-import { Logo, COLORS, Icons } from '../constants';
+import { COLORS, Icons } from '../constants';
+import logo from '../assets/logo.png';
 
 interface ProfileScreenProps {
   user: User | null;
@@ -77,7 +78,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, recordsCount, isLan
 
         {/* Brand Footer */}
         <div className="flex flex-col items-center pt-8 pb-4 opacity-30 grayscale transition-opacity hover:opacity-50">
-          <Logo className="w-32" />
+          <img src={logo} className="w-33" />
           <p className="text-[8px] font-black text-slate-500 mt-4 uppercase tracking-[0.3em]">Sistemas Internos Fazag</p>
         </div>
       </div>

@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { PunchRecord, User } from '../types';
-import { Icons, Logo, COLORS } from '../constants';
+import { Icons, COLORS } from '../constants';
+import logo from '../assets/logo.png';
 
 interface ReceiptScreenProps {
   record: PunchRecord;
@@ -28,7 +29,7 @@ const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ record, user, onBack }) =
         <div className="w-full bg-white rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden flex-1 border border-slate-200">
           {/* Official Logo Header */}
           <div className="text-center mb-8 pb-8 border-b border-dashed border-slate-200">
-            <Logo className="w-full h-24 mb-4" />
+            <img src={logo} className="w-full mb-4" />
             <div className="space-y-1">
               <h3 className="font-black text-sm text-slate-900 uppercase">Registro Eletrônico de Ponto</h3>
               <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase">Controle Interno • Portaria 671/21</p>

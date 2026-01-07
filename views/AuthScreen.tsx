@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../types';
-import { Icons, Logo, COLORS } from '../constants';
+import { Icons, COLORS } from '../constants';
+import { v4 as uuidv4 } from 'uuid';
+import { useLanConnection } from '@/utils/useLanConnection';
+import logo from '../assets/logo.png'
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
@@ -8,25 +11,32 @@ interface AuthScreenProps {
 
 const DEVICE_ID_KEY = 'fazag_device_id';
 
-const generateDeviceId = () => {
-  return `FAZAG-MOBILE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-};
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authMode, setAuthMode] = useState<'INITIAL' | 'PASSWORD'>('INITIAL');
   const [deviceId, setDeviceId] = useState<string>('');
 
+  const { isLanConnected, isOnline } = useLanConnection({
+    // se você quiser fixar IP do servidor:
+    // pingUrl: "http://192.168.0.10:5173/__ping",
+    intervalMs: 5000,
+    timeoutMs: 1500,
+    failThreshold: 2,
+  });
+
   /** 🔐 Verificação do deviceId ao entrar no app */
   useEffect(() => {
     let storedDeviceId = localStorage.getItem(DEVICE_ID_KEY);
 
     if (!storedDeviceId) {
-      storedDeviceId = generateDeviceId();
+      storedDeviceId = uuidv4().split('-')[0].toLocaleUpperCase(); // gera o uuid do usuário e pega somente até o primeiro hífen | Se bugar css no iOs remove isso e tenta outra solução
       localStorage.setItem(DEVICE_ID_KEY, storedDeviceId);
+      
     }
 
     setDeviceId(storedDeviceId);
+    
   }, []);
 
   const handleDeviceAuth = () => {
@@ -49,7 +59,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-full p-8 space-y-12">
       <div className="text-center w-full">
-        <Logo className="w-full h-32 mb-4" />
+        <img src={logo} className="w-full  mb-4" />
         <h1 className="text-2xl font-black text-slate-800 tracking-tight mt-4">
           Ponto FAZAG
         </h1>
@@ -57,13 +67,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
       <div className="w-full space-y-6">
         {/* STATUS DA REDE */}
-        <div className="bg-slate-100 border border-slate-200 p-4 rounded-2xl flex items-center space-x-3">
+       { isLanConnected ?
+         (<div className="bg-slate-100 border border-slate-200 p-4 rounded-2xl flex items-center space-x-3">
           <div className="text-slate-500">
             <Icons.Wifi />
           </div>
           <p className="text-xs text-slate-600 font-medium leading-tight">
             Status da Rede:{' '}
-            <span className="text-slate-900 font-bold italic">
+            <span className="text-slate-900 font-bold ">
               FAZAG_WIFI_INTERNA
             </span>
             <br />
@@ -71,7 +82,24 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
               Conexão Segura Detectada
             </span>
           </p>
-        </div>
+        </div>) : (
+          (<div className="bg-slate-100 border border-slate-200 p-4 rounded-2xl flex items-center space-x-3">
+          <div className="text-slate-500">
+            <Icons.Wifi />
+          </div>
+          <p className="text-xs text-slate-600 font-medium leading-tight">
+            Status da Rede:{' '}
+            <span className="text-slate-900 font-bold ">
+              FAZAG_WIFI_INTERNA
+            </span>
+            <br />
+            <span className="text-[10px] text-red-500 font-bold uppercase mt-1 block">
+              Sem conexão com a rede
+            </span>
+          </p>
+        </div>) 
+        )
+       }
 
         {/* DEVICE ID */}
         <div className="bg-slate-50 border border-dashed border-slate-300 p-3 rounded-xl text-center">
@@ -151,7 +179,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       </div>
 
       <p className="text-[10px] text-slate-400 text-center absolute bottom-8 uppercase tracking-widest font-bold">
-        Faculdade Zacarias de Góes • 2024
+        Faculdade Zacarias de Góes • 2026
       </p>
     </div>
   );

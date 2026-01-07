@@ -37,10 +37,37 @@ function sha256Hex(input: string) {
 }
 
 /**
+ * (SIMPLES) "login" por deviceId:
+ * - se usuário existir: valida deviceId
+ */
+
+app.post('/signin', async (req: any, res: any) => {
+  try {
+    const { deviceId } = req.body as { deviceId?: string };
+    if(!deviceId){
+      return res.status(400).json({error: 'O ID do dispositivo não foi passado corretamente.'})
+    }
+    const user = await prisma.user.findUnique({where: {deviceId}})
+
+    if(user?.deviceId !== deviceId){
+      return res.status(403).json({error: 'Dispositivo não encontrado.'})
+    }
+    if(user.deviceId === deviceId){
+      return res.status(200).json({user: user})
+    }
+  } catch(e){
+    res.status(405).json({error: e})
+  }
+})
+
+
+/**
  * (SIMPLES) "login" por cpf + deviceId:
  * - se usuário existir: valida deviceId
  * - se não existir: cria (pra facilitar testes)
  */
+
+
 app.post('/auth', async (req: any, res: any) => {
   try {
     const { cpf, nome, deviceId } = req.body as { cpf?: string; nome?: string; deviceId?: string };

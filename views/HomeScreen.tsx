@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, PunchType } from '../types';
-import { Icons, Logo, COLORS } from '../constants';
+import { Icons, COLORS } from '../constants';
+import logo from '../assets/logo.png';
 
 interface HomeScreenProps {
   user: User | null;
   isLanConnected: boolean;
   onPunch: (type: PunchType) => void;
+  lastRecord: string | null
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, lastRecord }) => {
   const [time, setTime] = useState(new Date());
-
+  const teste = localStorage.getItem('lastRecord')
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -39,8 +41,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch }
           <h2 className="text-xl font-black text-slate-800">{getGreeting()}, {user?.name.split(' ')[0]}</h2>
           <p className="text-slate-400 text-xs font-bold uppercase tracking-tighter">{formatDate(time)}</p>
         </div>
-        <div className="w-12 h-12">
-            <Logo className="w-12" />
+        <div className="w-[130px] flex-row align-center justify-center">
+            <img src={logo} />
         </div>
       </header>
 

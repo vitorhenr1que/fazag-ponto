@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
       registerType: "autoUpdate",
+      devOptions: {enabled: false},
       includeAssets: [
         "favicon.svg",
         "favicon.ico",
