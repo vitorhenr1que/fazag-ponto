@@ -156,6 +156,52 @@ app.post('/punch', async (req: any, res: any) => {
   }
 });
 
+app.get('/history/recent', async (req: any, res: any) => {
+  try {
+    const limit = Math.max(parseInt(String(req.query.limit ?? '10'), 10) || 10, 1);
+
+    const items = await prisma.historico.findMany({
+      orderBy: { dataHora: 'desc' },
+      take: limit,
+      include: {
+        user: true, // importante para h.user?.nome no Dashboard
+      },
+    });
+
+    return res.status(200).json({ history: items });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+app.get('/history/pending', async (req: any, res: any) => {
+  try {
+    const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1);
+    const limit = Math.max(parseInt(String(req.query.limit ?? '10'), 10) || 10, 1);
+
+    const where = { status: false };
+
+    const [total, items] = await Promise.all([
+      prisma.historico.count({ where }),
+      prisma.historico.findMany({
+        where,
+        orderBy: { dataHora: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          user: true, // <-- necessário pro Pending.tsx (h.user?.nome/cpf)
+        },
+      }),
+    ]);
+
+    return res.status(200).json({ history: items, total });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 /**
  * Listar histórico do usuário
  * GET /history/:userId
@@ -384,24 +430,7 @@ app.get('/dashboard/stats', async (req: any, res: any) => {
   }
 });
 
-app.get('/history/recent', async (req: any, res: any) => {
-  try {
-    const limit = Math.max(parseInt(String(req.query.limit ?? '10'), 10) || 10, 1);
 
-    const items = await prisma.historico.findMany({
-      orderBy: { dataHora: 'desc' },
-      take: limit,
-      include: {
-        user: true, // importante para h.user?.nome no Dashboard
-      },
-    });
-
-    return res.status(200).json({ history: items });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'Erro interno' });
-  }
-});
 
 
 const port = Number(process.env.PORT || 3333);
