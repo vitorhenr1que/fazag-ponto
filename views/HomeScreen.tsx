@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, PunchType } from '../types';
 import { Icons, COLORS } from '../constants';
 import logo from '../assets/logo.png';
@@ -11,13 +10,72 @@ interface HomeScreenProps {
   lastRecord: string | null
 }
 
+type PunchLockMap = Partial<Record<PunchType, string>>;
+
+const STORAGE_KEY = 'punch_lock_v1';
+
+// Usa a data local (Brasil) no formato YYYY-MM-DD
+function getLocalDayKey(d = new Date()) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function readLocks(): PunchLockMap {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') return parsed;
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocks(locks: PunchLockMap) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(locks));
+}
+
 const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, lastRecord }) => {
   const [time, setTime] = useState(new Date());
-  const teste = localStorage.getItem('lastRecord')
+
+  // estado de locks (por tipo)
+  const [locks, setLocks] = useState<PunchLockMap>(() => readLocks());
+
+  // Atualiza relógio
   useEffect(() => {
+    // localStorage.removeItem(STORAGE_KEY) // Disponibilizar Botões de Batidas Desativados
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Sempre que virar o dia (ou abrir o app em outro dia), os botões liberam automaticamente
+  // porque a checagem compara com o "hoje" atual.
+  const todayKey = useMemo(() => getLocalDayKey(time), [time]);
+
+  const isLockedToday = useCallback(
+    (type: PunchType) => locks?.[type] === todayKey,
+    [locks, todayKey]
+  );
+
+  // Handler que:
+  // 1) chama seu onPunch
+  // 2) salva lock do tipo para "hoje"
+  const handlePunch = useCallback(
+    (type: PunchType) => {
+      // evita clique se já bloqueado (dupla segurança)
+      if (isLockedToday(type)) return;
+
+      onPunch(type);
+
+      const next: PunchLockMap = { ...locks, [type]: todayKey };
+      setLocks(next);
+      writeLocks(next);
+    },
+    [isLockedToday, onPunch, locks, todayKey]
+  );
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -34,6 +92,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, 
     return "Boa noite";
   };
 
+  const getLastRecord = () => {
+    if(!lastRecord){
+      return `Nenhuma batida recente detectada.`
+    }
+    const horario = new Date(`${lastRecord}`).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+    const date = new Date(`${lastRecord}`);
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const ontem = new Date(hoje);
+    ontem.setDate(hoje.getDate() - 1);
+
+    const alvo = new Date(date);
+    alvo.setHours(0, 0, 0, 0);
+
+    if (alvo.getTime() === hoje.getTime()) return `Hoje às ${horario}`;
+    if (alvo.getTime() === ontem.getTime()) return `Ontem às ${horario}`;
+
+    const fullDate = date.toLocaleDateString('pt-BR')
+
+    return `${fullDate} às ${horario}`;
+  }
+
   return (
     <div className="p-6 space-y-6 flex flex-col min-h-full">
       <header className="flex justify-between items-center">
@@ -42,7 +125,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, 
           <p className="text-slate-400 text-xs font-bold uppercase tracking-tighter">{formatDate(time)}</p>
         </div>
         <div className="w-[130px] flex-row align-center justify-center">
-            <img src={logo} />
+          <img src={logo} />
         </div>
       </header>
 
@@ -74,32 +157,32 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, 
       <div className="grid grid-cols-2 gap-4 flex-1">
         <PunchActionButton 
           label="Entrada" 
-          onClick={() => onPunch(PunchType.ENTRY)}
-          disabled={!isLanConnected}
+          onClick={() => handlePunch(PunchType.ENTRY)}
+          disabled={!isLanConnected || isLockedToday(PunchType.ENTRY)}
           color="bg-white border-2 border-emerald-50 text-emerald-600"
           emoji="⏰"
           sub="Início Jornada"
         />
         <PunchActionButton 
           label="Intervalo" 
-          onClick={() => onPunch(PunchType.BREAK_START)}
-          disabled={!isLanConnected}
+          onClick={() => handlePunch(PunchType.BREAK_START)}
+          disabled={!isLanConnected || isLockedToday(PunchType.BREAK_START)}
           color="bg-white border-2 border-amber-50 text-amber-600"
           emoji="☕"
           sub="Saída Almoço"
         />
         <PunchActionButton 
           label="Retorno" 
-          onClick={() => onPunch(PunchType.BREAK_END)}
-          disabled={!isLanConnected}
+          onClick={() => handlePunch(PunchType.BREAK_END)}
+          disabled={!isLanConnected || isLockedToday(PunchType.BREAK_END)}
           color="bg-white border-2 border-sky-50 text-sky-600"
           emoji="🔁"
           sub="Volta Pausa"
         />
         <PunchActionButton 
           label="Saída" 
-          onClick={() => onPunch(PunchType.EXIT)}
-          disabled={!isLanConnected}
+          onClick={() => handlePunch(PunchType.EXIT)}
+          disabled={!isLanConnected || isLockedToday(PunchType.EXIT)}
           color="bg-white border-2 border-slate-50 text-slate-700"
           emoji="🔒"
           sub="Fim Expediente"
@@ -108,13 +191,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user, isLanConnected, onPunch, 
 
       <div className="bg-slate-100 p-4 rounded-2xl flex items-center justify-between">
         <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center text-slate-500">
-                <Icons.Clock />
-            </div>
-            <div className="text-[10px]">
-                <p className="text-slate-400 font-bold uppercase">Último Registro</p>
-                <p className="text-slate-800 font-black italic">Hoje às 08:02</p>
-            </div>
+          <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center text-slate-500">
+            <Icons.Clock />
+          </div>
+          <div className="text-[10px]">
+            <p className="text-slate-400 font-bold uppercase">Último Registro</p>
+            <p className="text-slate-800 font-black italic">{getLastRecord() || `08:02`}</p>
+          </div>
         </div>
         <Icons.CheckCircle />
       </div>

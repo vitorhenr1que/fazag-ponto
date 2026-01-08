@@ -3,100 +3,19 @@ import { PunchRecord, PunchType } from '../types';
 import { Icons } from '../constants';
 
 interface HistoryScreenProps {
-  records?: PunchRecord[]; // opcional: se não vier, usa mock
+  records: PunchRecord[];
   onViewReceipt: (id: string) => void;
 }
-
-/**
- * Mock do "retorno real do Prisma" vindo da API
- * (sem lanNetwork no model).
- */
-const PRISMA_HISTORY_MOCK = [
-  {
-    id: 'clx9l12ab0001t8a1mn9opqrs',
-    userId: 'clx9kz8qf0000t8a1x2y3z4w5',
-    deviceId: 'device-abc-123',
-    dataHora: '2026-01-06T08:05:00.000-03:00',
-    protocolo: 'PONTO-20260106-001',
-    hashSha256: 'a'.repeat(64),
-    status: true,
-    type: 'ENTRY' as const,
-  },
-  {
-    id: 'clx9l12ab0002t8a1mn9opqrt',
-    userId: 'clx9kz8qf0000t8a1x2y3z4w5',
-    deviceId: 'device-abc-123',
-    dataHora: '2026-01-06T12:10:00.000-03:00',
-    protocolo: 'PONTO-20260106-002',
-    hashSha256: 'b'.repeat(64),
-    status: true,
-    type: 'BREAK_START' as const,
-  },
-  {
-    id: 'clx9l12ab0003t8a1mn9opqru',
-    userId: 'clx9kz8qf0000t8a1x2y3z4w5',
-    deviceId: 'device-abc-123',
-    dataHora: '2026-01-06T13:00:00.000-03:00',
-    protocolo: 'PONTO-20260106-003',
-    hashSha256: 'c'.repeat(64),
-    status: true,
-    type: 'BREAK_END' as const,
-  },
-  {
-    id: 'clx9l12ab0004t8a1mn9opqrv',
-    userId: 'clx9kz8qf0000t8a1x2y3z4w5',
-    deviceId: 'device-abc-123',
-    dataHora: '2026-01-06T17:40:00.000-03:00',
-    protocolo: 'PONTO-20260106-004',
-    hashSha256: 'd'.repeat(64),
-    status: true,
-    type: 'EXIT' as const,
-  },
-] as const;
-
-type PrismaHistoryItem = typeof PRISMA_HISTORY_MOCK[number];
-
-const backendTypeToFrontType = (t: PrismaHistoryItem['type']): PunchType => {
-  switch (t) {
-    case 'ENTRY':
-      return PunchType.ENTRY;
-    case 'BREAK_START':
-      return PunchType.BREAK_START;
-    case 'BREAK_END':
-      return PunchType.BREAK_END;
-    case 'EXIT':
-      return PunchType.EXIT;
-    default:
-      throw new Error(`Tipo de punch desconhecido: ${t}`);
-  }
-};
-
-const mapPrismaToPunchRecord = (rows: PrismaHistoryItem[]): PunchRecord[] => {
-  return rows.map((r) => ({
-    id: r.id,
-    userId: r.userId,
-    deviceId: r.deviceId,
-    timestamp: r.dataHora,
-    type: backendTypeToFrontType(r.type),
-    hash: r.hashSha256,
-    isValidated: r.status,
-    // não vem do banco — placeholder até sua verificação de LAN existir
-    lanNetwork: 'FAZAG-INTERNA',
-  }));
-};
 
 const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
 
-  // Se não vier records (ainda sem API), usa mock convertido
-  const dataSource: PunchRecord[] = useMemo(() => {
-    return records?.length ? records : mapPrismaToPunchRecord([...PRISMA_HISTORY_MOCK]);
-  }, [records]);
+  const dataSource: PunchRecord[] = useMemo(() => records ?? [], [records]);
 
   const months = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
   ];
 
   const month = currentDate.getMonth();
@@ -116,23 +35,21 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt })
   };
 
   const dayHasRecords = (day: number) => {
-    return dataSource.some(r => {
+    return dataSource.some((r) => {
       const d = new Date(r.timestamp);
       return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
     });
   };
 
-  const getRecordsForSelectedDay = () => {
+  const selectedDayRecords = useMemo(() => {
     if (selectedDay === null) return [];
     return dataSource
-      .filter(r => {
+      .filter((r) => {
         const d = new Date(r.timestamp);
         return d.getDate() === selectedDay && d.getMonth() === month && d.getFullYear() === year;
       })
       .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  };
-
-  const selectedDayRecords = getRecordsForSelectedDay();
+  }, [dataSource, selectedDay, month, year]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
@@ -141,7 +58,6 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt })
       </header>
 
       <div className="p-4">
-        {/* Calendar Card */}
         <div className="bg-white rounded-[2rem] shadow-sm border p-6 mb-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-black text-slate-800">
@@ -158,14 +74,14 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt })
           </div>
 
           <div className="grid grid-cols-7 gap-y-4 text-center">
-            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => (
+            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => (
               <span key={d} className="text-[10px] font-black text-slate-300 uppercase">{d}</span>
             ))}
-            {/* Fill empty spaces */}
+
             {Array.from({ length: firstDayOfMonth }).map((_, i) => (
               <div key={`empty-${i}`} />
             ))}
-            {/* Fill days */}
+
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const hasData = dayHasRecords(day);
@@ -193,7 +109,6 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt })
           </div>
         </div>
 
-        {/* Selected Day Details */}
         <div className="space-y-4 pb-24">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">
@@ -210,7 +125,7 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt })
             </div>
           ) : (
             <div className="space-y-3">
-              {selectedDayRecords.map(record => (
+              {selectedDayRecords.map((record) => (
                 <HistoryItem key={record.id} record={record} onClick={() => onViewReceipt(record.id)} />
               ))}
             </div>
@@ -225,15 +140,15 @@ const HistoryItem: React.FC<{ record: PunchRecord; onClick: () => void }> = ({ r
   const getStyle = (type: PunchType) => {
     switch (type) {
       case PunchType.ENTRY:
-        return { bg: "bg-emerald-50", emoji: "⏰" };
+        return { bg: 'bg-emerald-50', emoji: '⏰' };
       case PunchType.BREAK_START:
-        return { bg: "bg-amber-50", emoji: "☕" };
+        return { bg: 'bg-amber-50', emoji: '☕' };
       case PunchType.BREAK_END:
-        return { bg: "bg-sky-50", emoji: "🔁" };
+        return { bg: 'bg-sky-50', emoji: '🔁' };
       case PunchType.EXIT:
-        return { bg: "bg-slate-100", emoji: "🔒" };
+        return { bg: 'bg-slate-100', emoji: '🔒' };
       default:
-        return { bg: "bg-slate-100", emoji: "🕒" };
+        return { bg: 'bg-slate-100', emoji: '🕒' };
     }
   };
 
@@ -254,9 +169,7 @@ const HistoryItem: React.FC<{ record: PunchRecord; onClick: () => void }> = ({ r
           <p className="text-xl font-black text-slate-800 tabular-nums">{time}</p>
         </div>
       </div>
-      <button
-        className="px-4 py-2 bg-slate-50 text-[10px] font-black uppercase text-slate-500 rounded-xl hover:bg-slate-100 transition-colors"
-      >
+      <button className="px-4 py-2 bg-slate-50 text-[10px] font-black uppercase text-slate-500 rounded-xl hover:bg-slate-100 transition-colors">
         Ver Recibo
       </button>
     </div>

@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
         description: "Controle de ponto em rede local",
         theme_color: "#0B1F3B",
         background_color: "#0B1F3B",
-        display: "standalone",
+        display: "fullscreen",
         scope: "/",
         start_url: "/",
         icons: [

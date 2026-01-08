@@ -1,8 +1,9 @@
-
-import React from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { PunchRecord, User } from '../types';
 import { Icons, COLORS } from '../constants';
 import logo from '../assets/logo.png';
+import { ReceiptPrintable } from '../components/ReceiptPrintable';
+import { generateReceiptPdfBlob, downloadBlob, shareBlobAsPdf } from '../utils/receiptPdf';
 
 interface ReceiptScreenProps {
   record: PunchRecord;
@@ -15,96 +16,152 @@ const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ record, user, onBack }) =
   const formattedDate = timestamp.toLocaleDateString('pt-BR');
   const formattedTime = timestamp.toLocaleTimeString('pt-BR');
 
+  const printRef = useRef<HTMLDivElement | null>(null);
+  const [busy, setBusy] = useState<'pdf' | 'share' | null>(null);
+
+  const filename = useMemo(() => `comprovante-${record.id}.pdf`, [record.id]);
+
+  async function handleDownloadPdf() {
+    if (!printRef.current || busy) return;
+
+    try {
+      setBusy('pdf');
+      const blob = await generateReceiptPdfBlob({ element: printRef.current });
+      downloadBlob(blob, filename);
+    } catch (e) {
+      console.error(e);
+      alert('Não foi possível gerar o PDF. Tente novamente.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSharePdf() {
+    if (!printRef.current || busy) return;
+
+    try {
+      setBusy('share');
+      const blob = await generateReceiptPdfBlob({ element: printRef.current });
+      await shareBlobAsPdf(blob, filename);
+    } catch (e) {
+      console.error(e);
+      alert('Não foi possível compartilhar o PDF. Tente novamente.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full bg-slate-100">
-      <header className="p-6 bg-white border-b flex items-center">
+    <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
+      <header className="p-6 bg-white border-b flex items-center shrink-0">
         <button onClick={onBack} className="p-2 -ml-2 text-slate-500 active:scale-90 transition-transform">
           <Icons.ArrowLeft />
         </button>
-        <h2 className="ml-2 text-lg font-black text-slate-800 uppercase tracking-tight">Comprovante Digital</h2>
+        <h2 className="ml-2 text-lg font-black text-slate-800 uppercase tracking-tight">
+          Comprovante Digital
+        </h2>
       </header>
 
-      <div className="flex-1 p-6 flex flex-col">
-        {/* Receipt UI */}
-        <div className="w-full bg-white rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden flex-1 border border-slate-200">
-          {/* Official Logo Header */}
+      {/* ✅ Conteúdo rolável com espaço pro BottomNav fixo (~17vh) */}
+      <div className="flex-1 overflow-y-auto p-6 pb-[calc(17vh+1.5rem)]">
+        {/* Receipt UI (o mesmo que você já tinha) */}
+        <div className="w-full bg-white rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden border border-slate-200">
           <div className="text-center mb-8 pb-8 border-b border-dashed border-slate-200">
             <img src={logo} className="w-full mb-4" />
             <div className="space-y-1">
               <h3 className="font-black text-sm text-slate-900 uppercase">Registro Eletrônico de Ponto</h3>
-              <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase">Controle Interno • Portaria 671/21</p>
+              <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase">
+                Controle Interno • Portaria 671/21
+              </p>
             </div>
           </div>
 
-          {/* Details */}
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-5">
-              <DetailBox label="Colaborador" value={user?.nome || "N/A"} />
-              <DetailBox label="CPF" value={user?.cpf || "N/A"} />
+              <DetailBox label="Colaborador" value={user?.nome || 'N/A'} />
+              <DetailBox label="CPF" value={user?.cpf || 'N/A'} />
             </div>
-            
+
             <div className="py-6 px-4 bg-slate-50 rounded-[2rem] flex flex-col items-center border border-slate-100 shadow-inner">
               <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Operação Realizada</p>
-              <h4 className="text-2xl font-black text-slate-800 uppercase italic">{record.type}</h4>
+              <h4 className="text-2xl font-black text-slate-800 uppercase italic text-center">{record.type}</h4>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <DetailBox label="Data do Registro" value={formattedDate} />
-              <DetailBox label="Hora Exata" value={formattedTime} />
+              <div className={'flex justify-end'}>
+                <DetailBox label="Hora Exata" value={formattedTime} />
+              </div>
+              
             </div>
 
             <div className="pt-6 border-t border-dashed border-slate-200 space-y-3">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">Autenticação de Segurança</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">
+                Autenticação de Segurança
+              </p>
               <MiniDetail label="Terminal/Dispositivo" value={record.deviceId} />
               <MiniDetail label="Protocolo" value={record.id} isMono />
-              <MiniDetail label="Hash SHA-256" value={record.hash.substr(0, 20) + '...'} isMono />
+              <MiniDetail label="Hash SHA-256" value={(record.hash ?? '').slice(0, 20) + '...'} isMono />
             </div>
           </div>
 
-          {/* Validation Seal */}
           <div className="mt-10 flex flex-col items-center">
             <div className="flex items-center space-x-2 text-emerald-600 bg-emerald-50 px-6 py-2 rounded-full border border-emerald-100 shadow-sm">
               <Icons.CheckCircle />
               <span className="font-black text-xs tracking-tighter">REGISTRO AUTENTICADO</span>
             </div>
             <p className="text-[9px] text-slate-400 mt-6 text-center leading-relaxed font-bold uppercase">
-              Gerado em {new Date().toLocaleString('pt-BR')} <br/>
+              Gerado em {new Date().toLocaleString('pt-BR')} <br />
               Acesso exclusivo via LAN segura FAZAG
             </p>
           </div>
 
-          {/* Ticket Edge Decoration */}
           <div className="absolute -bottom-5 left-0 right-0 flex justify-between px-6">
-             {[...Array(10)].map((_, i) => (
-                <div key={i} className="w-8 h-8 bg-slate-100 rounded-full"></div>
-             ))}
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="w-8 h-8 bg-slate-100 rounded-full"></div>
+            ))}
           </div>
         </div>
-        
+
         {/* Actions */}
         <div className="grid grid-cols-2 gap-4 mt-6">
-          <button className="flex items-center justify-center space-x-2 bg-slate-200 text-slate-700 py-4 rounded-2xl font-black text-xs uppercase shadow-sm active:scale-95 transition-all">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={busy !== null}
+            className="flex items-center justify-center space-x-2 bg-slate-200 text-slate-700 py-4 rounded-2xl font-black text-xs uppercase shadow-sm active:scale-95 transition-all disabled:opacity-60"
+          >
             <Icons.Download />
-            <span>PDF</span>
+            <span>{busy === 'pdf' ? 'Gerando...' : 'PDF'}</span>
           </button>
-          <button style={{ backgroundColor: COLORS.primary }} className="flex items-center justify-center space-x-2 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">
+
+          <button
+            onClick={handleSharePdf}
+            disabled={busy !== null}
+            style={{ backgroundColor: COLORS.primary }}
+            className="flex items-center justify-center space-x-2 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all disabled:opacity-60"
+          >
             <Icons.Share />
-            <span>Enviar</span>
+            <span>{busy === 'share' ? 'Abrindo...' : 'Enviar'}</span>
           </button>
         </div>
+      </div>
+
+      {/* ✅ Render escondido (fora da tela) para capturar o PDF */}
+      <div className="fixed -left-[99999px] top-0 opacity-0 pointer-events-none">
+        <ReceiptPrintable ref={printRef} record={record} user={user} />
       </div>
     </div>
   );
 };
 
-const DetailBox: React.FC<{ label: string, value: string }> = ({ label, value }) => (
+const DetailBox: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div className="flex flex-col">
     <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-0.5">{label}</span>
     <span className="text-slate-800 font-black text-sm">{value}</span>
   </div>
 );
 
-const MiniDetail: React.FC<{ label: string, value: string, isMono?: boolean }> = ({ label, value, isMono }) => (
+const MiniDetail: React.FC<{ label: string; value: string; isMono?: boolean }> = ({ label, value, isMono }) => (
   <div className="flex justify-between items-center text-[10px]">
     <span className="text-slate-400 font-bold uppercase">{label}</span>
     <span className={`text-slate-600 font-bold ${isMono ? 'font-mono' : ''}`}>{value}</span>

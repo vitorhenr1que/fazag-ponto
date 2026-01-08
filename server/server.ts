@@ -176,5 +176,233 @@ app.get('/history/:userId', async (req: any, res: any) => {
   }
 });
 
+//Obter todos os usuários
+app.get('/users', async (req: any, res: any) => {
+  try{
+    const users = await prisma.user.findMany({
+    orderBy: { nome: 'asc' }
+    });
+    return res.status(200).json( users );
+  }catch(e){
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+})
+
+/**
+ * Buscar usuário por ID
+ * GET /users/:id
+ */
+app.get('/users/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    return res.status(200).json({ user: user ?? null });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+/**
+ * Criar usuário (funcionário)
+ * POST /users
+ * Body: { nome, cpf, deviceId }
+ */
+app.get('/users', async (req: any, res: any) => {
+  try {
+    const search = String(req.query.search ?? '').trim();
+    const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1);
+    const perPage = Math.max(parseInt(String(req.query.perPage ?? '50'), 10) || 50, 1);
+
+    const where =
+      search.length > 0
+        ? {
+            OR: [
+              { nome: { contains: search, mode: 'insensitive' as const } },
+              { cpf: { contains: search } },
+              { deviceId: { contains: search } },
+            ],
+          }
+        : undefined;
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        orderBy: { nome: 'asc' },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+    ]);
+
+    return res.status(200).json({ users, total });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+/**
+ * Atualizar usuário
+ * PATCH /users/:id
+ * Body: { nome?, cpf?, deviceId? }
+ */
+app.patch('/users/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { nome, cpf, deviceId } = req.body as {
+      nome?: string;
+      cpf?: string;
+      deviceId?: string;
+    };
+
+    const data: any = {};
+    if (typeof nome === 'string') data.nome = nome;
+    if (typeof cpf === 'string') data.cpf = cpf;
+    if (typeof deviceId === 'string') data.deviceId = deviceId;
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'Envie ao menos um campo para atualizar' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data,
+    });
+
+    return res.status(200).json({ user });
+  } catch (e: any) {
+    // Record not found
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Unique constraint (cpf/deviceId)
+    if (e?.code === 'P2002') {
+      return res.status(409).json({
+        error: 'CPF ou deviceId já cadastrado',
+        meta: e?.meta,
+      });
+    }
+
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+/**
+ * Deletar usuário
+ * DELETE /users/:id
+ */
+app.delete('/users/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({ ok: true });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+app.post('/punch-manual', async (req: any, res: any) => {
+  try {
+    const { userId, deviceId, type, dataHora, status } = req.body as {
+      userId?: string;
+      deviceId?: string;
+      type?: ApiPunchType;
+      dataHora?: string;
+      status?: boolean;
+    };
+
+    if (!userId || !deviceId || !type || !dataHora) {
+      return res.status(400).json({ error: 'userId, deviceId, type e dataHora são obrigatórios' });
+    }
+    if (!isValidPunchType(type)) {
+      return res.status(400).json({ error: 'type inválido' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+    if (user.deviceId !== deviceId) return res.status(403).json({ error: 'deviceId não autorizado' });
+
+    const protocolo = protocoloNow();
+    const dt = new Date(dataHora);
+
+    const hashSha256 = sha256Hex(`${userId}|${deviceId}|${type}|${dt.toISOString()}|${protocolo}`);
+
+    const created = await prisma.historico.create({
+      data: {
+        userId,
+        deviceId,
+        type,
+        dataHora: dt,
+        protocolo,
+        hashSha256,
+        status: typeof status === 'boolean' ? status : false,
+      },
+    });
+
+    return res.json({ success: true, historico: created });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+app.get('/dashboard/stats', async (req: any, res: any) => {
+  try {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const [totalHoje, pendentes, funcionariosAtivos] = await Promise.all([
+      prisma.historico.count({
+        where: { dataHora: { gte: start } },
+      }),
+      prisma.historico.count({
+        where: { status: false },
+      }),
+      prisma.user.count(),
+    ]);
+
+    return res.status(200).json({ totalHoje, pendentes, funcionariosAtivos });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+app.get('/history/recent', async (req: any, res: any) => {
+  try {
+    const limit = Math.max(parseInt(String(req.query.limit ?? '10'), 10) || 10, 1);
+
+    const items = await prisma.historico.findMany({
+      orderBy: { dataHora: 'desc' },
+      take: limit,
+      include: {
+        user: true, // importante para h.user?.nome no Dashboard
+      },
+    });
+
+    return res.status(200).json({ history: items });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+
 const port = Number(process.env.PORT || 3333);
 app.listen(port, () => console.log(`API on :${port}`));

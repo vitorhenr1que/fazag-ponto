@@ -52,6 +52,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, errorMessage, user }) 
       setIsAuthenticating(false);
 
       onLogin({
+        id: `${user?.id}`,
         nome: `${user?.nome}`,
         cpf: `${user?.cpf}`,
         deviceId
