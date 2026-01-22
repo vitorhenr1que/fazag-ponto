@@ -58,7 +58,7 @@ const App: React.FC = () => {
     (async () => {
       try {
         const resp = await api.get<{ historicos: PrismaHistoryItem[] }>(
-          `http://192.168.0.6:3333/history/${user.id}`
+          `${import.meta.env.VITE_API_URL}:3333/history/${user.id}`
         );
 
         if (cancelled) return;
@@ -83,7 +83,7 @@ const App: React.FC = () => {
 
   const handleLogin = async (newUser: User) => {
     try {
-      const response = await api.post('http://192.168.0.6:3333/signin', { deviceId: newUser.deviceId });
+      const response = await api.post(`${import.meta.env.VITE_API_URL}:3333/signin`, { deviceId: newUser.deviceId });
 
       setUser(response.data.user);
       localStorage.setItem(STORAGE_USER, JSON.stringify(response.data.user));
@@ -99,7 +99,7 @@ const App: React.FC = () => {
         setErrorMessage('Dispositivo não cadastrado.');
         return;
       }
-      setErrorMessage('Erro de conexão com o servidor.');
+      setErrorMessage(`Erro de conexão com o servidor.`);
       console.log({ error: e });
     }
   };
@@ -135,7 +135,7 @@ const App: React.FC = () => {
         const resp = await api.post<{
           success: boolean;
           historico: PrismaHistoryItem;
-        }>('http://192.168.0.6:3333/punch', {
+        }>('http://192.168.1.119:3333/punch', {
           userId: user.id,
           deviceId: user.deviceId,
           type: frontTypeToBackend(type),
