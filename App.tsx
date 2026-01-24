@@ -135,7 +135,7 @@ const App: React.FC = () => {
         const resp = await api.post<{
           success: boolean;
           historico: PrismaHistoryItem;
-        }>('http://192.168.1.119:3333/punch', {
+        }>(`${import.meta.env.VITE_API_URL}:3333/punch`, {
           userId: user.id,
           deviceId: user.deviceId,
           type: frontTypeToBackend(type),

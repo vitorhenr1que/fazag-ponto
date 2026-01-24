@@ -20,40 +20,64 @@ enum PunchType {
   EXIT
 }
 
+enum UserNoteType {
+  FOLGA
+  FERIAS
+  RECESSO
+  OUTRO
+}
+
 model User {
-  id        String     @id @default(cuid())
-  nome      String
-  cpf       String     @unique @db.VarChar(14)
-  deviceId  String     @unique @db.VarChar(128)
+  id       String @id @default(cuid())
+  nome     String
+  cpf      String @unique @db.VarChar(14)
+  deviceId String @unique @db.VarChar(128)
 
   historicos Historico[]
-
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  notes      UserNote[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@index([cpf])
   @@index([deviceId])
 }
 
+model UserNote {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      UserNoteType @default(OUTRO)
+  startDate DateTime     @db.DateTime(0) // início do período
+  endDate   DateTime     @db.DateTime(0) // fim do período (inclusive)
+  note      String       @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, startDate, endDate])
+}
+
 model Historico {
-  id         String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type       PunchType
-  dataHora   DateTime  @db.DateTime(0)
+  type     PunchType
+  dataHora DateTime  @db.DateTime(0)
 
-  protocolo  String    @unique @db.VarChar(64)
-  hashSha256 String    @db.Char(64)
-  status     Boolean   @default(false)
+  protocolo  String  @unique @db.VarChar(64)
+  hashSha256 String  @db.Char(64)
+  status     Boolean @default(false)
 
-  deviceId   String    @db.VarChar(128)
+  deviceId String @db.VarChar(128)
 
-  createdAt  DateTime  @default(now())
+  createdAt DateTime @default(now())
 
+  @@unique([protocolo, hashSha256])
   @@index([userId, dataHora])
   @@index([protocolo])
   @@index([hashSha256])
-  @@unique([protocolo, hashSha256])
 }

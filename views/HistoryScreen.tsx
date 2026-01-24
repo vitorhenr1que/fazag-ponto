@@ -74,8 +74,8 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, onViewReceipt })
           </div>
 
           <div className="grid grid-cols-7 gap-y-4 text-center">
-            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => (
-              <span key={d} className="text-[10px] font-black text-slate-300 uppercase">{d}</span>
+            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+              <span key={i} className="text-[10px] font-black text-slate-300 uppercase">{d}</span>
             ))}
 
             {Array.from({ length: firstDayOfMonth }).map((_, i) => (
