@@ -32,6 +32,10 @@ model User {
   nome     String
   cpf      String @unique @db.VarChar(14)
   deviceId String @unique @db.VarChar(128)
+  funcao       String?  @db.VarChar(80)
+  departamento String?  @db.VarChar(80)
+  admissao     DateTime? @db.DateTime(0)
+  pisPasep     String?  @db.VarChar(30)
 
   historicos Historico[]
   notes      UserNote[]

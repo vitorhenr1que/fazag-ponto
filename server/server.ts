@@ -6,16 +6,55 @@ import { prisma } from '../services/prisma';
 import { startOfDay, endOfDay } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { buildTimecardsReport } from '../services/reports.service';
+import { renderTimecardsPdf } from '../services/timecards-pdf';
+import { generateTimecardsPdfBuffer } from '../services/timecards-pdf.playwright';
+import path from 'path';
+
+import fs from 'fs';
+
+const publicDir = path.resolve(process.cwd(), 'public');
 
 const app = express();
 
 app.use(express.json());
 
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || '*',
-  })
-);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin as string | undefined;
+
+  // permite seu front (3000 e 3001) e também localhost
+  const allowed = new Set([
+    `${process.env.VITE_API_URL}:3000`,
+    `${process.env.VITE_API_URL}:3001`,
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ]);
+
+  if (origin && allowed.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  // necessário para preflight e para alguns browsers
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // para você conseguir ler Content-Disposition no front
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length');
+
+  // responde preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+
+
+// (opcional) log pra você ver no console o caminho real - Diretório public acessado pelo server
+console.log('[STATIC] publicDir =', publicDir, 'exists?', fs.existsSync(publicDir));
+app.use('/public', express.static(publicDir));
 
 type ApiPunchType = 'ENTRY' | 'BREAK_START' | 'BREAK_END' | 'EXIT';
 
@@ -314,40 +353,70 @@ app.get('/users', async (req: any, res: any) => {
 });
 
 /**
- * Atualizar usuário
- * PATCH /users/:id
- * Body: { nome?, cpf?, deviceId? }
+ * Criar usuário (funcionário)
+ * POST /users
+ * Body: { nome, cpf, deviceId, funcao?, departamento?, admissao?, pisPasep? }
  */
-app.patch('/users/:id', async (req: any, res: any) => {
+app.post('/users', async (req: any, res: any) => {
   try {
-    const { id } = req.params as { id: string };
-    const { nome, cpf, deviceId } = req.body as {
+    const {
+      nome,
+      cpf,
+      deviceId,
+      funcao,
+      departamento,
+      admissao,
+      pisPasep,
+    } = req.body as {
       nome?: string;
       cpf?: string;
       deviceId?: string;
+      funcao?: string | null;
+      departamento?: string | null;
+      admissao?: string | null; // aceita YYYY-MM-DD ou ISO
+      pisPasep?: string | null;
     };
 
-    const data: any = {};
-    if (typeof nome === 'string') data.nome = nome;
-    if (typeof cpf === 'string') data.cpf = cpf;
-    if (typeof deviceId === 'string') data.deviceId = deviceId;
-
-    if (Object.keys(data).length === 0) {
-      return res.status(400).json({ error: 'Envie ao menos um campo para atualizar' });
+    if (!nome || !cpf || !deviceId) {
+      return res.status(400).json({ error: 'nome, cpf e deviceId são obrigatórios' });
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data,
-    });
+    const data: any = {
+      nome: String(nome).trim(),
+      cpf: String(cpf).trim(),
+      deviceId: String(deviceId).trim(),
 
-    return res.status(200).json({ user });
+      funcao:
+        funcao != null && String(funcao).trim() !== ''
+          ? String(funcao).trim()
+          : null,
+
+      departamento:
+        departamento != null && String(departamento).trim() !== ''
+          ? String(departamento).trim()
+          : null,
+
+      pisPasep:
+        pisPasep != null && String(pisPasep).trim() !== ''
+          ? String(pisPasep).trim()
+          : null,
+    };
+
+    // admissao (Date)
+    if (admissao != null && String(admissao).trim() !== '') {
+      const d = new Date(String(admissao));
+      if (Number.isNaN(d.getTime())) {
+        return res.status(400).json({ error: 'admissao inválida (use YYYY-MM-DD ou ISO)' });
+      }
+      data.admissao = d;
+    } else {
+      data.admissao = null;
+    }
+
+    const user = await prisma.user.create({ data });
+
+    return res.status(201).json({ user });
   } catch (e: any) {
-    // Record not found
-    if (e?.code === 'P2025') {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
-    }
-
     // Unique constraint (cpf/deviceId)
     if (e?.code === 'P2002') {
       return res.status(409).json({
@@ -360,6 +429,91 @@ app.patch('/users/:id', async (req: any, res: any) => {
     return res.status(500).json({ error: 'Erro interno' });
   }
 });
+
+
+/**
+ * Atualizar usuário
+ * PATCH /users/:id
+ * Body: { nome?, cpf?, deviceId? }
+ */
+app.patch('/users/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    const { nome, cpf, deviceId, funcao, departamento, admissao, pisPasep } =
+      req.body as {
+        nome?: string;
+        cpf?: string;
+        deviceId?: string;
+        funcao?: string | null;
+        departamento?: string | null;
+        admissao?: string | null; // YYYY-MM-DD ou ISO
+        pisPasep?: string | null;
+      };
+
+    const data: any = {};
+
+    if (typeof nome === 'string') data.nome = nome.trim();
+    if (typeof cpf === 'string') data.cpf = cpf.trim();
+    if (typeof deviceId === 'string') data.deviceId = deviceId.trim();
+
+    if (funcao !== undefined) {
+      data.funcao = funcao != null && String(funcao).trim() !== '' ? String(funcao).trim() : null;
+    }
+
+    if (departamento !== undefined) {
+      data.departamento =
+        departamento != null && String(departamento).trim() !== ''
+          ? String(departamento).trim()
+          : null;
+    }
+
+    if (pisPasep !== undefined) {
+      data.pisPasep =
+        pisPasep != null && String(pisPasep).trim() !== ''
+          ? String(pisPasep).trim()
+          : null;
+    }
+
+    if (admissao !== undefined) {
+      if (admissao == null || String(admissao).trim() === '') {
+        data.admissao = null;
+      } else {
+        const d = new Date(String(admissao));
+        if (Number.isNaN(d.getTime())) {
+          return res.status(400).json({ error: 'admissao inválida (use YYYY-MM-DD ou ISO)' });
+        }
+        data.admissao = d;
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'Envie ao menos um campo para atualizar' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data,
+    });
+
+    return res.status(200).json({ user });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    if (e?.code === 'P2002') {
+      return res.status(409).json({
+        error: 'CPF ou deviceId já cadastrado',
+        meta: e?.meta,
+      });
+    }
+
+    console.error(e);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 
 /**
  * Deletar usuário
@@ -825,6 +979,91 @@ app.get('/reports/timecards.xlsx', async (req: any, res: any) => {
   }
 });
 
+// Transformar em PDF - reports/timecards.pdf
+app.get('/reports/timecards.pdf', async (req: any, res: any) => {
+  try {
+    const { userId, start, end, preview } = req.query as {
+      userId?: string;
+      start?: string;
+      end?: string;
+      preview?: string;
+    };
+
+    if (!userId || !start || !end) {
+      return res.status(400).json({ error: 'userId, start e end são obrigatórios' });
+    }
+
+    // Aceita "YYYY-MM-DD" e também "YYYY-MM-DDTHH:mm:ss..." (ISO)
+    function normalizeYmd(value: string) {
+      const s = String(value).trim();
+      return s.includes('T') ? s.slice(0, 10) : s;
+    }
+
+    function parseStartDate(value: string) {
+      const ymd = normalizeYmd(value); // YYYY-MM-DD
+      const d = new Date(`${ymd}T00:00:00`);
+      return d;
+    }
+
+    function parseEndDate(value: string) {
+      const ymd = normalizeYmd(value); // YYYY-MM-DD
+      const d = new Date(`${ymd}T23:59:59.999`);
+      return d;
+    }
+
+    const startDate = parseStartDate(start);
+    const endDate = parseEndDate(end);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return res.status(400).json({ error: 'start/end inválidos (use YYYY-MM-DD ou ISO)' });
+    }
+
+    if (endDate.getTime() < startDate.getTime()) {
+      return res.status(400).json({ error: 'end não pode ser menor que start' });
+    }
+
+    const report = await buildTimecardsReport({
+      userId,
+      start: startDate,
+      end: endDate,
+    });
+
+    const filename = `relatorio-ponto_${report.user.nome}_${report.range.start}_${report.range.end}.pdf`
+      .replaceAll(' ', '_');
+
+    const pdfBuffer = await generateTimecardsPdfBuffer(report);
+
+    // Content-Type sempre PDF
+    res.setHeader('Content-Type', 'application/pdf');
+
+    // ✅ Preview: NÃO força attachment (deixa o browser abrir inline)
+    const isPreview =
+      String(preview) === '1' || String(preview).toLowerCase() === 'true';
+
+    if (!isPreview) {
+      // ✅ Download: força baixar
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    } else {
+      // (opcional) se quiser, você pode setar inline explícito:
+      // res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      // mas o mais garantido pra abrir no viewer é NÃO setar nada.
+    }
+
+    res.setHeader('Content-Length', String(pdfBuffer.length));
+
+    return res.status(200).send(pdfBuffer);
+  } catch (e: any) {
+    console.error('[PDF ERROR]', e);
+    return res
+      .status(e?.statusCode || 500)
+      .json({ error: e?.message || 'Erro ao gerar PDF' });
+  }
+});
+
+
+
+
+
 // Rota MÉDIA DE HORAS MENSAIS - reports/users/:id/monthly-averages
 
 app.get('/reports/users/:id/monthly-averages', async (req: any, res: any) => {
@@ -887,4 +1126,4 @@ app.get('/reports/users/:id/monthly-averages', async (req: any, res: any) => {
 });
 
 const port = Number(process.env.PORT || 3333);
-app.listen(port, () => console.log(`API on :${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`API on :${port}`));
